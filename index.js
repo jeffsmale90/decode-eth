@@ -8,7 +8,25 @@ if (!dir || !encodedReason) {
   process.exit(1);
 }
 console.log(`Loading ABI files from ${dir}`);
-console.log(`Matching encoded reason: ${encodedReason}`);
+console.log();
+process.stdout.write("Searching...    ");
+const processIndicator = {
+  i: 0,
+  chars: ["|", "/", "-", "\\", "|"],
+
+  increment: () => {
+    process.stdout.moveCursor(-2);
+    process.stdout.write(processIndicator.chars[processIndicator.i] + " ");
+    processIndicator.i =
+      (processIndicator.i + 1) % processIndicator.chars.length;
+  },
+  clear: () => {
+    process.stdout.moveCursor(-2);
+    process.stdout.write("  ");
+    console.log();
+    console.log();
+  },
+};
 
 // Function to get 4-byte selector for an error item
 function getErrorSelector(errorItem) {
@@ -28,12 +46,15 @@ function padRight(string, length) {
 function walkDirectory(dir) {
   const files = readdirSync(dir);
   files.forEach((file) => {
+    processIndicator.increment();
     const filePath = join(dir, file);
     const stats = statSync(filePath);
     if (stats.isDirectory()) {
       walkDirectory(filePath);
     } else if (stats.isFile() && file.endsWith(".json")) {
-      processFile(filePath);
+      if (processFile(filePath)) {
+        process.exit(0);
+      }
     }
   });
 }
@@ -41,7 +62,14 @@ function walkDirectory(dir) {
 // Process a single JSON file
 function processFile(file) {
   const contents = readFileSync(file, { encoding: "utf8" });
-  const { abi } = JSON.parse(contents);
+  let abi;
+  try {
+    const json = JSON.parse(contents);
+    abi = json.abi;
+  } catch (error) {
+    return;
+  }
+
   if (abi === undefined) {
     return;
   }
@@ -52,14 +80,22 @@ function processFile(file) {
       const selector = getErrorSelector(item);
       if (encodedReason.startsWith(selector)) {
         const paddedName = padRight(item.name, item.name.length);
-        console.log(`File: ${file}`);
+
+        processIndicator.clear();
+
+        console.log(`Selector found in: ${file}`);
         console.log(`Error: ${paddedName} Selector: ${selector}`);
-        const decoded = decodeAbiParameters(
-          item.inputs,
-          "0x" + encodedReason.slice(10)
-        );
-        console.table(decoded);
-        return;
+        try {
+          const decoded = decodeAbiParameters(
+            item.inputs,
+            "0x" + encodedReason.slice(10)
+          );
+
+          console.table(decoded);
+        } catch (error) {
+          console.error("Error decoding parameters");
+        }
+        return true;
       }
     }
   }
@@ -67,3 +103,15 @@ function processFile(file) {
 
 // Start walking the directory from the provided path
 walkDirectory(dir);
+
+// fallback to revert string
+try {
+  const decoded = decodeAbiParameters(
+    [{ type: "string" }],
+    `0x${encodedReason.slice(10)}`
+  );
+  console.table(decoded);
+} catch (er) {
+  processIndicator.clear();
+  console.log("Not found in any ABI files.");
+}
