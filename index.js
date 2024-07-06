@@ -45,9 +45,9 @@ function padRight(string, length) {
 
 // Recursively walk through the directory and process JSON files
 function walkDirectory(dir) {
+  processIndicator.increment();
   const files = readdirSync(dir);
   files.forEach((file) => {
-    processIndicator.increment();
     const filePath = join(dir, file);
     const stats = statSync(filePath);
     if (stats.isDirectory()) {
@@ -84,15 +84,22 @@ function processFile(file) {
 
         processIndicator.clear();
 
-        console.log(`Selector found in: ${file}`);
-        console.log(`Error: ${paddedName} Selector: ${selector}`);
+        console.log(`Found in: ${file}`);
+        console.log();
+        console.log(`Error: ${paddedName}`);
+
         try {
           const decoded = decodeAbiParameters(
             item.inputs,
             "0x" + encodedReason.slice(10)
           );
 
-          console.table(decoded);
+          const params = decoded.reduce((accumulator, d, i) => {
+            accumulator[item.inputs[i].name] = d;
+            return accumulator;
+          }, {});
+
+          console.table(params);
         } catch (error) {
           console.error("Error decoding parameters");
         }
