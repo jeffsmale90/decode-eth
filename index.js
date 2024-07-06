@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const { keccak256, decodeAbiParameters } = require("viem");
 const { readFileSync, readdirSync, statSync } = require("fs");
 const { join } = require("path");
