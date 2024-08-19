@@ -94,12 +94,14 @@ function processFile(file) {
             "0x" + encodedReason.slice(10)
           );
 
-          const params = decoded.reduce((accumulator, d, i) => {
-            accumulator[item.inputs[i].name] = d;
-            return accumulator;
-          }, {});
+          if (decoded.length > 0) {
+            const params = decoded.reduce((accumulator, d, i) => {
+              accumulator[item.inputs[i].name] = d;
+              return accumulator;
+            }, {});
 
-          console.table(params);
+            console.table(params);
+          }
         } catch (error) {
           console.error("Error decoding parameters");
         }
